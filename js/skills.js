@@ -13,14 +13,14 @@
 // EDITAR AQUI: suas habilidades
 // =============================================
 const skillsData = [
-  { nome: "HTML & CSS",       nivel: 90, icone: "fab fa-html5" },
-  { nome: "JavaScript",       nivel: 85, icone: "fab fa-js" },
-  { nome: "Python",           nivel: 80, icone: "fab fa-python" },
-  { nome: "React",            nivel: 75, icone: "fab fa-react" },
-  { nome: "Node.js",          nivel: 70, icone: "fab fa-node-js" },
-  { nome: "Git & GitHub",     nivel: 85, icone: "fab fa-git-alt" },
-  { nome: "Banco de Dados",   nivel: 75, icone: "fas fa-database" },
-  { nome: "TypeScript",       nivel: 65, icone: "fas fa-code" },
+  { nome: "Python",           nivel: 100, icone: "fab fa-python" },
+  { nome: "SQL",              nivel: 100, icone: "fa fa-database" },
+  { nome: "Planilhas",        nivel: 100, icone: "fa fa fa-file-excel" },
+  { nome: "BI",               nivel: 100, icone: "fa fa-line-chart" },
+  { nome: "Big Data",         nivel: 100, icone: "fa fa-table" },
+  { nome: "Machine Learning", nivel: 100, icone: "fa fa-microchip" },
+  { nome: "Git & GitHub",     nivel: 100, icone: "fab fa-git-alt" },
+  { nome: "Linux & Windows",  nivel: 100, icone: "fa fa-window-restore" },
 ];
 // ADICIONE OU REMOVA ITENS À VONTADE ↑
 

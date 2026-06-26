@@ -1,168 +1,261 @@
 /* ================================================================
-   GRID-EFFECT.JS - Grid magnético + Ripple (apenas no Hero)
+   GRID-EFFECT.JS - Rede de Ondas WebGL 3D usando Three.js
    ================================================================ */
 
-(function initGridEffect() {
+(function initThreeWaveGrid() {
   const hero = document.getElementById('hero');
-  if (!hero) return;
+  if (!hero || typeof THREE === 'undefined') return;
 
+  // 1. Criar o Canvas
   const canvas = document.createElement('canvas');
   canvas.id = 'gridCanvas';
   hero.insertBefore(canvas, hero.firstChild);
 
-  const ctx = canvas.getContext('2d');
-  let dots = [];
-  let mouse = { x: -9999, y: -9999 };
+  // 2. Parâmetros da Grade de Partículas
+  const SEPARATOR = 40;
+  const AMOUNTX = 65;
+  const AMOUNTY = 45;
+
+  let scene, camera, renderer, particles, count = 0;
+  let currentTheme = '';
   let ripples = [];
+  
+  // Controle do mouse em 3D
+  const raycaster = new THREE.Raycaster();
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const mouse3D = new THREE.Vector3(-9999, -9999, -9999);
+  const mouse2D = new THREE.Vector2(-9999, -9999);
 
-  const CFG = {
-    spacing: 44,
-    jitter: 16,
-    dotRadius: 2.5,
-    repelRadius: 120,
-    repelStrength: 16,
-    returnSpeed: 0.05,
-    damping: 0.82,
-    rippleSpeed: 2.5,
-    rippleOpacity: 0.25,
-    dotOpacity: 0.25,
-    dotNearOpacity: 0.5,
-    nearRadius: 70,
-  };
-
-  function seededRandom(seed) {
-    return ((seed * 9301 + 49297) % 233280) / 233280;
-  }
-
-  function getHeroRect() {
-    return hero.getBoundingClientRect();
-  }
-
-  function resize() {
-    const rect = getHeroRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
-    ctx.scale(dpr, dpr);
-    generateDots(rect);
-  }
-
-  function generateDots(rect) {
-    dots = [];
-    const cols = Math.ceil(rect.width / CFG.spacing) + 2;
-    const rows = Math.ceil(rect.height / CFG.spacing) + 2;
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const seed = y * cols + x;
-        const ox = x * CFG.spacing + (seededRandom(seed * 2) - 0.5) * CFG.jitter * 2;
-        const oy = y * CFG.spacing + (seededRandom(seed * 2 + 1) - 0.5) * CFG.jitter * 2;
-        dots.push({ ox, oy, cx: ox, cy: oy, vx: 0, vy: 0 });
-      }
-    }
-  }
-
+  // Função para ler a cor do tema CSS
   function getColor() {
     const s = getComputedStyle(document.documentElement);
     return (s.getPropertyValue('--grid-dot-color') || '#4a5578').trim();
   }
 
-  function hexToRgba(hex, a) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r},${g},${b},${a})`;
+  // Gera uma textura circular em tempo de execução para partículas suaves
+  function createCircleTexture() {
+    const canvasMat = document.createElement('canvas');
+    canvasMat.width = 32;
+    canvasMat.height = 32;
+    const ctxMat = canvasMat.getContext('2d');
+    const grad = ctxMat.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.8)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctxMat.fillStyle = grad;
+    ctxMat.fillRect(0, 0, 32, 32);
+    return new THREE.CanvasTexture(canvasMat);
   }
 
-  function addRipple(x, y) {
-    const rect = getHeroRect();
-    const rx = x - rect.left;
-    const ry = y - rect.top;
-    ripples.push({ x: rx, y: ry, radius: 0, opacity: 1 });
-    for (const dot of dots) {
-      const dx = dot.cx - rx;
-      const dy = dot.cy - ry;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 160 && dist > 0) {
-        const force = (1 - dist / 160) * 22;
-        dot.vx += (dx / dist) * force;
-        dot.vy += (dy / dist) * force;
+  function init() {
+    // Câmera com perspectiva inclinada
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.set(0, 280, 500);
+    camera.lookAt(new THREE.Vector3(0, -50, 0));
+
+    scene = new THREE.Scene();
+
+    const numParticles = AMOUNTX * AMOUNTY;
+    const positions = new Float32Array(numParticles * 3);
+    const scales = new Float32Array(numParticles);
+
+    // Inicializar posições planas da grade no espaço 3D (X e Z)
+    let i = 0;
+    let s = 0;
+    for (let ix = 0; ix < AMOUNTX; ix++) {
+      for (let iy = 0; iy < AMOUNTY; iy++) {
+        positions[i] = ix * SEPARATOR - (AMOUNTX * SEPARATOR) / 2; // X
+        positions[i + 1] = 0;                                      // Y (Altura inicial)
+        positions[i + 2] = iy * SEPARATOR - (AMOUNTY * SEPARATOR) / 2; // Z
+
+        scales[s] = 1;
+        i += 3;
+        s++;
       }
     }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('scale', new THREE.BufferAttribute(scales, 1));
+
+    // Material das partículas com textura circular e suporte à transparência
+    const material = new THREE.PointsMaterial({
+      size: 4.0,
+      map: createCircleTexture(),
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.NormalBlending,
+      depthWrite: false
+    });
+
+    // Criar o objeto Points no Three.js
+    particles = new THREE.Points(geometry, material);
+    scene.add(particles);
+
+    // Configurar o Renderer WebGL
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    
+    resize();
+
+    // Eventos
+    window.addEventListener('resize', resize);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('click', onClick);
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('mouseleave', onMouseLeave);
+
+    animate();
+  }
+
+  function resize() {
+    const rect = hero.getBoundingClientRect();
+    camera.aspect = rect.width / rect.height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(rect.width, rect.height, false);
+  }
+
+  function onMouseMove(e) {
+    const rect = hero.getBoundingClientRect();
+    mouse2D.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse2D.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  }
+
+  function onTouchMove(e) {
+    if (e.touches[0]) {
+      const rect = hero.getBoundingClientRect();
+      mouse2D.x = ((e.touches[0].clientX - rect.left) / rect.width) * 2 - 1;
+      mouse2D.y = -((e.touches[0].clientY - rect.top) / rect.height) * 2 + 1;
+    }
+  }
+
+  function onTouchStart(e) {
+    if (e.touches[0]) {
+      const rect = hero.getBoundingClientRect();
+      const tx = e.touches[0].clientX;
+      const ty = e.touches[0].clientY;
+      mouse2D.x = ((tx - rect.left) / rect.width) * 2 - 1;
+      mouse2D.y = -((ty - rect.top) / rect.height) * 2 + 1;
+      triggerRipple(tx, ty);
+    }
+  }
+
+  function onClick(e) {
+    triggerRipple(e.clientX, e.clientY);
+  }
+
+  function triggerRipple(clientX, clientY) {
+    // Certifica-se de atualizar a interseção no clique antes de registrar
+    raycaster.setFromCamera(mouse2D, camera);
+    raycaster.ray.intersectPlane(plane, mouse3D);
+
+    if (mouse3D.x !== -9999) {
+      ripples.push({
+        x: mouse3D.x,
+        z: mouse3D.z,
+        radius: 0,
+        maxRadius: 500,
+        speed: 7.5,
+        strength: 70,
+        opacity: 1.0
+      });
+    }
+  }
+
+  function onMouseLeave() {
+    mouse2D.x = -9999;
+    mouse2D.y = -9999;
+    mouse3D.set(-9999, -9999, -9999);
   }
 
   function animate() {
-    const rect = getHeroRect();
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    const color = getColor();
-
-    for (let i = ripples.length - 1; i >= 0; i--) {
-      const r = ripples[i];
-      r.radius += CFG.rippleSpeed;
-      r.opacity -= 0.012;
-      if (r.opacity <= 0) { ripples.splice(i, 1); continue; }
-      ctx.beginPath();
-      ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-      ctx.strokeStyle = hexToRgba(color, r.opacity * CFG.rippleOpacity);
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-
-    for (const dot of dots) {
-      const dx = dot.cx - mouse.x;
-      const dy = dot.cy - mouse.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist < CFG.repelRadius && dist > 0) {
-        const force = (1 - dist / CFG.repelRadius) * CFG.repelStrength;
-        dot.vx += (dx / dist) * force;
-        dot.vy += (dy / dist) * force;
-      }
-
-      dot.vx += (dot.ox - dot.cx) * CFG.returnSpeed;
-      dot.vy += (dot.oy - dot.cy) * CFG.returnSpeed;
-      dot.vx *= CFG.damping;
-      dot.vy *= CFG.damping;
-      dot.cx += dot.vx;
-      dot.cy += dot.vy;
-
-      const opacity = dist < CFG.nearRadius
-        ? CFG.dotOpacity + (1 - dist / CFG.nearRadius) * (CFG.dotNearOpacity - CFG.dotOpacity)
-        : CFG.dotOpacity;
-
-      ctx.beginPath();
-      ctx.arc(dot.cx, dot.cy, CFG.dotRadius, 0, Math.PI * 2);
-      ctx.fillStyle = hexToRgba(color, opacity);
-      ctx.fill();
-    }
-
     requestAnimationFrame(animate);
+
+    // 1. Monitoramento inteligente de troca de tema CSS
+    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    if (theme !== currentTheme) {
+      currentTheme = theme;
+      const col = getColor();
+      particles.material.color.set(col);
+    }
+
+    // 2. Atualizar Ripples ativos
+    for (let r = ripples.length - 1; r >= 0; r--) {
+      const rip = ripples[r];
+      rip.radius += rip.speed;
+      rip.opacity -= 0.016;
+      if (rip.opacity <= 0) {
+        ripples.splice(r, 1);
+      }
+    }
+
+    // 3. Atualizar posição do Mouse 3D no plano Y=0
+    if (mouse2D.x !== -9999) {
+      raycaster.setFromCamera(mouse2D, camera);
+      raycaster.ray.intersectPlane(plane, mouse3D);
+    }
+
+    // 4. Animação matemática das posições dos vértices da grade
+    const positions = particles.geometry.attributes.position.array;
+    const scales = particles.geometry.attributes.scale.array;
+    let i = 0;
+    let s = 0;
+
+    for (let ix = 0; ix < AMOUNTX; ix++) {
+      for (let iy = 0; iy < AMOUNTY; iy++) {
+        const posX = positions[i];
+        const posZ = positions[i + 2];
+
+        // Ondulação padrão (fórmula matemática de ondas cruzadas e circulares)
+        const distFromCenter = Math.sqrt(posX * posX + posZ * posZ);
+        let heightY = Math.sin((ix + count) * 0.25) * 18 + Math.cos((iy + count) * 0.25) * 18;
+        heightY += Math.sin(distFromCenter * 0.01 - count * 0.8) * 10;
+
+        // Efeito magnético do Mouse (atração/repulsão)
+        if (mouse3D.x !== -9999) {
+          const dx = posX - mouse3D.x;
+          const dz = posZ - mouse3D.z;
+          const distMouse = Math.sqrt(dx * dx + dz * dz);
+          
+          if (distMouse < 180) {
+            const progress = 1 - distMouse / 180;
+            // Cria um declive dinâmico ondulatório sob o mouse
+            heightY += Math.sin(distMouse * 0.05 - count * 2) * 35 * progress;
+          }
+        }
+
+        // Efeito físico das ondas de clique (Ripples)
+        ripples.forEach(rip => {
+          const rdx = posX - rip.x;
+          const rdz = posZ - rip.z;
+          const distRip = Math.sqrt(rdx * rdx + rdz * rdz);
+          
+          if (distRip < rip.radius && distRip > rip.radius - 120) {
+            const progress = 1 - (Math.abs(distRip - rip.radius) / 120);
+            heightY += Math.sin((distRip - rip.radius) * 0.05) * rip.strength * rip.opacity * progress;
+          }
+        });
+
+        // Aplica a nova altura Y calculado no buffer de vértices
+        positions[i + 1] = heightY;
+
+        // Escala dinâmica baseada na altura da crista da onda (partes altas ficam ligeiramente maiores)
+        scales[s] = 1.0 + (heightY + 30) / 60;
+
+        i += 3;
+        s++;
+      }
+    }
+
+    particles.geometry.attributes.position.needsUpdate = true;
+    particles.geometry.attributes.scale.needsUpdate = true;
+
+    count += 0.025; // velocidade base de oscilação do loop
+
+    renderer.render(scene, camera);
   }
 
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(resize, 150);
-  });
-  document.addEventListener('mousemove', (e) => {
-    const rect = getHeroRect();
-    mouse.x = e.clientX - rect.left;
-    mouse.y = e.clientY - rect.top;
-  });
-  document.addEventListener('click', (e) => addRipple(e.clientX, e.clientY));
-  document.addEventListener('touchmove', (e) => {
-    if (e.touches[0]) {
-      const rect = getHeroRect();
-      mouse.x = e.touches[0].clientX - rect.left;
-      mouse.y = e.touches[0].clientY - rect.top;
-    }
-  }, { passive: true });
-  document.addEventListener('touchstart', (e) => {
-    if (e.touches[0]) addRipple(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  document.addEventListener('mouseleave', () => { mouse.x = -9999; mouse.y = -9999; });
-
-  resize();
-  animate();
+  // Inicializar a execução
+  init();
 })();

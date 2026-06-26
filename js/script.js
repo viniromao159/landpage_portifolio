@@ -11,9 +11,9 @@
 /* ========================== */
 // EDITAR AQUI (opcional): frases do efeito de digitação
 const TYPING_PHRASES = [
-  "Transformo ideias em código",
-  "Crio soluções inteligentes",
-  "Desenvolvo o futuro",
+  "Transformo dados em decisões",
+  "Conecto dados e negócios",
+  "Resolvo problemas com dados"
 ];
 
 const TYPING_SPEED = 80;    // ms por caractere
