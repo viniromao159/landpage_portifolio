@@ -14,28 +14,25 @@
 
 const PROJECTS_DATA = [
   {
-    titulo: "Sistema de Gestão de Tarefas",
-    descricao: "Aplicação web para gerenciamento de tarefas com dashboard em tempo real, autenticação de usuários e kanban interativo.",
-    tags: ["React", "Node.js", "MongoDB"],
-    imagem: "",
-    github: "https://github.com/seuuser/sistema-gestao",
-    demo: "https://sistema-gestao.vercel.app"
+    titulo: "Análise de Vendas Olist",
+    descricao: "Análise exploratória de dados do e-commerce brasileiro utilizando o dataset público da Olist.",
+    tags: ["Python", "Pandas"],
+    imagem: "../img/olist.jpg",
+    github: "https://github.com/viniromao159/olist",
   },
   {
-    titulo: "API de E-commerce",
-    descricao: "API RESTful completa para plataforma de e-commerce com carrinho de compras, autenticação JWT e integração de pagamentos.",
-    tags: ["Python", "Django", "PostgreSQL"],
-    imagem: "",
-    github: "https://github.com/seuuser/ecommerce-api",
-    demo: ""
+    titulo: "Análise de compartilhamento de bicicletas - Cyclistic",
+    descricao: "Estudo de caso para entender como diferente tipos de usuários utilizam o programa de alugel de bicicleta.",
+    tags: ["Python", "SQL", "PostgreSQL"],
+    imagem: "../img/Cyclistic.jpg",
+    github: "https://github.com/viniromao159/cyclistic-analyse",
   },
   {
-    titulo: "Dashboard de Análise",
-    descricao: "Dashboard interativo para visualização de dados com gráficos dinâmicos, filtros e exportação de relatórios.",
-    tags: ["React", "TypeScript", "Chart.js"],
-    imagem: "",
-    github: "https://github.com/seuuser/dashboard-analise",
-    demo: "https://dashboard-analise.vercel.app"
+    titulo: "Wine Quality Prediction",
+    descricao: "Criação de modelos preditores para prever a qualidade de vinhos.",
+    tags: ["Python", "Machine Learning"],
+    imagem: "../img/vinhos.jpg",
+    github: "https://github.com/MayconNune/PosGraduacao_DataAnalytics---Machine-Learning---Grupo-31",
   },
 ];
 
