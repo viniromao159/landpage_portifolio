@@ -165,3 +165,136 @@ const PAUSE_AFTER = 500;    // pausa antes de digitar a próxima
     });
   }
 })();
+
+/* ========================== */
+/* CARROSSEL                  */
+/* ========================== */
+function initCarousel(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const items = Array.from(container.children);
+  if (items.length === 0) return;
+
+  function getItemsPerView() {
+    if (window.innerWidth <= 768) return 1;
+    if (window.innerWidth <= 1024) return 2;
+    return 3;
+  }
+
+  let currentIndex = 0;
+  let itemsPerView = getItemsPerView();
+
+  container.classList.remove('projetos-grid', 'formacao-grid');
+  container.style.position = 'relative';
+  container.style.overflow = 'visible';
+
+  const viewport = document.createElement('div');
+  viewport.className = 'carousel-viewport';
+
+  const track = document.createElement('div');
+  track.className = 'carousel-track';
+  items.forEach(function(item) { track.appendChild(item); });
+  viewport.appendChild(track);
+  container.appendChild(viewport);
+
+  var prevBtn = document.createElement('button');
+  prevBtn.className = 'carousel-btn prev';
+  prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+  prevBtn.setAttribute('aria-label', 'Anterior');
+
+  var nextBtn = document.createElement('button');
+  nextBtn.className = 'carousel-btn next';
+  nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+  nextBtn.setAttribute('aria-label', 'Próximo');
+
+  container.appendChild(prevBtn);
+  container.appendChild(nextBtn);
+
+  var dotsContainer = document.createElement('div');
+  dotsContainer.className = 'carousel-dots';
+  container.appendChild(dotsContainer);
+
+  function getMaxIndex() {
+    return Math.max(0, items.length - itemsPerView);
+  }
+
+  function update() {
+    itemsPerView = getItemsPerView();
+    var maxIndex = getMaxIndex();
+    var isCarousel = items.length > itemsPerView;
+
+    if (!isCarousel) {
+      currentIndex = 0;
+      track.style.transform = 'translateX(0)';
+      prevBtn.style.display = 'none';
+      nextBtn.style.display = 'none';
+      dotsContainer.style.display = 'none';
+      return;
+    }
+
+    dotsContainer.style.display = '';
+
+    if (currentIndex > maxIndex) currentIndex = maxIndex;
+    if (currentIndex < 0) currentIndex = 0;
+
+    var itemWidthPx = viewport.offsetWidth / itemsPerView;
+    track.style.transform = 'translateX(-' + (currentIndex * itemWidthPx) + 'px)';
+
+    prevBtn.style.display = currentIndex === 0 ? 'none' : '';
+    nextBtn.style.display = currentIndex >= maxIndex ? 'none' : '';
+
+    dotsContainer.innerHTML = '';
+    for (var i = 0; i <= maxIndex; i++) {
+      var dot = document.createElement('button');
+      dot.className = 'carousel-dot' + (i === currentIndex ? ' active' : '');
+      dot.setAttribute('aria-label', 'Posicao ' + (i + 1));
+      dot.addEventListener('click', (function(idx) {
+        return function() {
+          currentIndex = idx;
+          update();
+        };
+      })(i));
+      dotsContainer.appendChild(dot);
+    }
+  }
+
+  prevBtn.addEventListener('click', function() {
+    currentIndex--;
+    update();
+  });
+
+  nextBtn.addEventListener('click', function() {
+    currentIndex++;
+    update();
+  });
+
+  var startX = 0;
+  var isDragging = false;
+
+  viewport.addEventListener('touchstart', function(e) {
+    startX = e.touches[0].clientX;
+    isDragging = true;
+  }, { passive: true });
+
+  viewport.addEventListener('touchend', function(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    var diff = startX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) { currentIndex++; } else { currentIndex--; }
+      update();
+    }
+  }, { passive: true });
+
+  var resizeTimeout;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(update, 150);
+  });
+
+  update();
+}
+
+initCarousel('projectsContainer');
+initCarousel('formacaoContainer');
